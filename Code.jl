@@ -89,6 +89,7 @@ function calculate_δ(s, θ_hat, p, X)
             δ[j][m] = calculate_δjm(s, θ_hat, δ, p, X, j, m)
         end
     end
+    return δ
 end
 δ = calculate_δ(s, θ_hat, p, X)
 
@@ -102,9 +103,49 @@ function calculate_ξ(δ, X, β_hat, α_hat, p)
             ξ[j][m] = δ[j][m] - X[j][m]'β_hat + α_hat*p[j][m]
         end
     end
+    return ξ
 end
-ξ = calculate_ξ(δ, X, β_hat, α_hat, p)
-            
 
+# IV = 3 vector
+function G(θ_hat, δ, X, p, W, Z)
+    β_hat = θ_hat[1]
+    α_hat = θ_hat[2]
+    ξ = calculate_ξ(δ, X, β_hat, α_hat, p)
+    # Top moment:
+    top = 0
+    for j in eachindex(p)
+        for m in eachindex(p[j])
+            IV_compet_char = 0
+            for product in X
+                IV_compet_char = 0
+                if X[j] != product
+                    IV_compet_char += product[m]
+                end
+            end
+            IV_compet_char /= (length(X) - 1)
+            top += IV_compet_char * ξ[j][m]
+        end
+    end
+    top /= length(p) * length(p[1])
+    # Middle moment:
+    middle = 0
+    for j in eachindex(p)
+        for m in eachindex(p[j])
+            middle += W[j] * ξ[j][m]
+        end
+    end
+    middle /= length(p) * length(p[1])
+    # Bottom moment:
+    bottom = 0
+    for j in eachindex(p)
+        for m in eachindex(p[j])
+            bottom += Z[j][m] * ξ[j][m]
+        end
+    end
+    bottom /= length(p) * length(p[1])
+    return [top, middle, bottom]
+end
 
+res = optimize(norm(G(θ_hat, δ, X, p, W, Z)))
+Optim.minimizer(res)
 
